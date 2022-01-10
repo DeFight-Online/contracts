@@ -107,6 +107,11 @@ document.querySelector('.sign-out .btn').addEventListener('click', () => {
   window.location.replace(window.location.origin + window.location.pathname);
 });
 
+// Get user NFTs on button click
+document.querySelector('.nft .btn').addEventListener('click', () => {
+  contract.checkNFTs().then((list) => document.querySelector('#user-nfts').innerText = list === undefined ? 'getting...' : list);
+});
+
 window.nearInitPromise = connect(nearConfig)
     .then(updateUI)
     .catch(console.error);

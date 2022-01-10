@@ -1,107 +1,84 @@
-//! This contract implements simple counter backed by storage on blockchain.
-//!
-//! The contract provides methods to [increment] / [decrement] counter and
-//! [get it's current value][get_num] or [reset].
-//!
-//! [increment]: struct.Counter.html#method.increment
-//! [decrement]: struct.Counter.html#method.decrement
-//! [get_num]: struct.Counter.html#method.get_num
-//! [reset]: struct.Counter.html#method.reset
-
+use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
+// use near_sdk::serde::{Deserialize, Serialize};
+
+pub use warrior::Warrior;
+pub use battle::{Battle, EBattleConfig};
+pub use stats::{Stats, EStats};
+
+mod warrior;
+mod battle;
+mod stats;
+
+type BattleId = u64;
 
 near_sdk::setup_alloc!();
 
-// add the following attributes to prepare your code for serialization and invocation on the blockchain
-// More built-in Rust attributes here: https://doc.rust-lang.org/reference/attributes.html#built-in-attributes-index
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-pub struct Counter {
-    // See more data types at https://doc.rust-lang.org/book/ch03-02-data-types.html
-    val: i8, // i8 is signed. unsigned integers are also available: u8, u16, u32, u64, u128
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+    Battles,
+    AvailableWarriors,
+    Stats,
+    AvailableBattles,
+    Affiliates {account_id: AccountId},
+    TotalRewards {account_id: AccountId},
+    TotalAffiliateRewards{ account_id: AccountId},
 }
 
 #[near_bindgen]
-impl Counter {
-    /// Returns 8-bit signed integer of the counter value.
-    ///
-    /// This must match the type from our struct's 'val' defined above.
-    ///
-    /// Note, the parameter is `&self` (without being mutable) meaning it doesn't modify state.
-    /// In the frontend (/src/main.js) this is added to the "viewMethods" array
-    /// using near-cli we can call this by:
-    ///
-    /// ```bash
-    /// near view counter.YOU.testnet get_num
-    /// ```
-    pub fn get_num(&self) -> i8 {
-        return self.val;
-    }
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct DeFight {
+    battles: LookupMap<BattleId, Battle>,
+    available_warriors: UnorderedMap<AccountId, EBattleConfig>,
+    stats: UnorderedMap<AccountId, EStats>,
+    available_battles: UnorderedMap<BattleId, (AccountId, AccountId)>,
+    next_battle_id: BattleId,
+    service_fee: Balance,
+}
 
-    /// Increment the counter.
-    ///
-    /// Note, the parameter is "&mut self" as this function modifies state.
-    /// In the frontend (/src/main.js) this is added to the "changeMethods" array
-    /// using near-cli we can call this by:
-    ///
-    /// ```bash
-    /// near call counter.YOU.testnet increment --accountId donation.YOU.testnet
-    /// ```
-    pub fn increment(&mut self) {
-        // note: adding one like this is an easy way to accidentally overflow
-        // real smart contracts will want to have safety checks
-        // e.g. self.val = i8::wrapping_add(self.val, 1);
-        // https://doc.rust-lang.org/std/primitive.i8.html#method.wrapping_add
-        self.val += 1;
-        let log_message = format!("Increased number to {}", self.val);
-        env::log(log_message.as_bytes());
-        after_counter_change();
-    }
+#[near_bindgen]
+impl DeFight {
+    #[init]
+    pub fn new() -> Self {
+        Self {
+            battles: LookupMap::new(StorageKey::Battles),
+            available_warriors: UnorderedMap::new(StorageKey::AvailableWarriors),
+            stats: UnorderedMap::new(StorageKey::Stats),
+            available_battles: UnorderedMap::new(StorageKey::AvailableBattles),
 
-    /// Decrement (subtract from) the counter.
-    ///
-    /// In (/src/main.js) this is also added to the "changeMethods" array
-    /// using near-cli we can call this by:
-    ///
-    /// ```bash
-    /// near call counter.YOU.testnet decrement --accountId donation.YOU.testnet
-    /// ```
-    pub fn decrement(&mut self) {
-        // note: subtracting one like this is an easy way to accidentally overflow
-        // real smart contracts will want to have safety checks
-        // e.g. self.val = i8::wrapping_sub(self.val, 1);
-        // https://doc.rust-lang.org/std/primitive.i8.html#method.wrapping_sub
-        self.val -= 1;
-        let log_message = format!("Decreased number to {}", self.val);
-        env::log(log_message.as_bytes());
-        after_counter_change();
-    }
-
-    /// Reset to zero.
-    pub fn reset(&mut self) {
-        self.val = 0;
-        // Another way to log is to cast a string into bytes, hence "b" below:
-        env::log(b"Reset counter to zero");
+            next_battle_id: 0,
+            service_fee: 0,
+        }
     }
 }
 
-// unlike the struct's functions above, this function cannot use attributes #[derive(…)] or #[near_bindgen]
-// any attempts will throw helpful warnings upon 'cargo build'
-// while this function cannot be invoked directly on the blockchain, it can be called from an invoked function
-fn after_counter_change() {
-    // show helpful warning that i8 (8-bit signed integer) will overflow above 127 or below -128
-    env::log("Make sure you don't overflow, my friend.".as_bytes());
+#[near_bindgen]
+impl DeFight {
+    pub(crate) fn is_battle_started(&self, account_id: &AccountId) {
+        let battles_already_started: Vec<(AccountId, AccountId)> = self.available_battles.values_as_vector()
+            .iter()
+            .filter(|(warrior_1, warrior_2)| *warrior_1 == *account_id || *warrior_2 == *account_id)
+            .collect();
+        assert_eq!(battles_already_started.len(), 0, "Another battle already started");
+    }
+
+    pub fn start_game(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> BattleId {
+        if let Some(opponent) = self.available_warriors.get(&opponent_id.unwrap_or("".to_string())) {
+            panic!("PvP mode is not ready yet");
+        } else {
+            let account_id = env::predecessor_account_id();
+
+            self.is_battle_started(&account_id);
+
+            let battle_id = self.next_battle_id;
+            battle_id
+        }
+
+    }
 }
 
-/*
- * the rest of this file sets up unit tests
- * to run these, the command will be:
- * cargo test --package rust-counter-tutorial -- --nocapture
- * Note: 'rust-counter-tutorial' comes from cargo.toml's 'name' key
- */
-
-// use the attribute below for unit tests
 #[cfg(test)]
 mod tests {
     use super::*;
