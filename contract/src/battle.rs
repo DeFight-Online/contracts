@@ -4,7 +4,8 @@ use strum::{EnumVariantNames, VariantNames};
 use regex::Regex;
 use std::str::FromStr;
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Battle {
     pub warrior_1: Warrior,
     pub warrior_2: Warrior,
@@ -56,13 +57,13 @@ impl FromStr for Part {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum InputError {
     WrongActions { actions : Vec<ParseError> },
     TooFewActions,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ParseError {
     WrongAction { action : String },
     WrongPart { part : String },
@@ -228,18 +229,6 @@ mod test {
     
         assert_eq!(vec![MoveData::new(ActionType::Attack, Part::Head), MoveData::new(ActionType::Protect, Part::Legs)], result);
     }
-
-    // ptest!(test_parse_move[
-        // test_parse_move_1("attack:head protect:legs", vec![MoveData::new("attack", "head"), MoveData::new("protect", "legs")]),
-        // test_parse_move_a2_a1("a2 a1", vec![BoardPosition::new(1, 0), BoardPosition::new(0, 0)]),
-        // test_parse_move_a1_a2("a1 a2", vec![BoardPosition::new(0, 0), BoardPosition::new(1, 0)]),
-        // test_parse_move_a2_a2("a2 a2", vec![BoardPosition::new(1, 0), BoardPosition::new(1, 0)]),
-        // test_parse_move_aa1_aa1("aa1 aa1", vec![BoardPosition::new(0, 26), BoardPosition::new(0, 26)]),
-        // test_parse_move_aa1_ab1("aa1 ab1", vec![BoardPosition::new(0, 26), BoardPosition::new(0, 27)]),
-        // test_parse_move_ab1_aa1("ab1 aa1", vec![BoardPosition::new(0, 27), BoardPosition::new(0, 26)]),
-        // test_parse_move_yy99_zz99("yy99 zz99", vec![BoardPosition::new(98, 674), BoardPosition::new(98, 701)]),
-        // test_parse_move_aaa99_aaa99("aaa99 aaa99", vec![BoardPosition::new(98, 702), BoardPosition::new(98, 702)]),
-        // test_parse_move_xfd13_ahh37("xfd13 ahh37", vec![BoardPosition::new(12, 16383), BoardPosition::new(36, 891)]),
-        // test_parse_move_xx123_yy456_zz789("xx123 yy456 zz789", vec![BoardPosition::new(122, 647), BoardPosition::new(455, 674), BoardPosition::new(788, 701)])
-    // ]);
+    
+    // TO DO: add tests for panics
 }

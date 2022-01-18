@@ -2,10 +2,10 @@ use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
-// use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::serde::{Deserialize, Serialize};
 
 pub use warrior::Warrior;
-pub use battle::{Battle, EBattleConfig};
+pub use battle::{Battle, EBattleConfig, InputError, parse_move, ParseError};
 pub use stats::{Stats, EStats};
 
 mod warrior;
@@ -136,7 +136,7 @@ impl DeFight {
         }
     }
 
-    pub(crate) fn get_battle(&self, battle_id: &BattleId) -> Battle {
+    pub fn get_battle(&self, battle_id: &BattleId) -> Battle {
         self.battles.get(battle_id).expect("Battle not found")
     }
 
@@ -182,8 +182,29 @@ impl DeFight {
 
         // display::print_board(game.board());
 
-        let parse_result = battle::parse_move(&params);
+        let parse_result = parse_move(&params);
 
+        println!("Parse result: {:?}", parse_result);
+
+        match parse_result {
+            Ok(actions) => {
+                println!("Actions: {:?}", actions)
+            }
+            Err(e) => match e {
+                InputError::TooFewActions =>
+                    panic!("\n *** You must specify two actions - Attack and Protect"),
+                InputError::WrongActions { actions: errors } => {
+                    for error in errors {
+                        match error {
+                            ParseError::WrongAction { action } =>
+                                panic!("\n *** Action {} doesn't exist in the game", action),
+                            ParseError::WrongPart { part } =>
+                                panic!("\n *** Part '{}' doesn't exist in the game", part),
+                        }
+                    }
+                }
+            }
+        }
         // match parse_result {
         //     Ok(positions) => {
         //         let move_result = util::apply_positions_as_move(&mut game, positions);

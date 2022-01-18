@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Warrior {
 	pub id : u32,
     pub(crate) account_id: Option<AccountId>,

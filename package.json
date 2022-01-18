@@ -5,7 +5,7 @@
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
     "build": "cd contract && cargo build --target wasm32-unknown-unknown --release",
-    "postbuild": "cp contract/target/wasm32-unknown-unknown/release/rust_counter_tutorial.wasm ./out/main.wasm",
+    "postbuild": "cp contract/target/wasm32-unknown-unknown/release/defight.wasm ./out/main.wasm",
     "deploy:contract": "near deploy",
     "deploy:pages": "gh-pages -d src",
     "deploy": "yarn build && yarn deploy:contract",
