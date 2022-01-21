@@ -5,7 +5,7 @@ use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
 
 pub use warrior::Warrior;
-pub use battle::{Battle, EBattleConfig, InputError, parse_move, ParseError};
+pub use battle::{Battle, EBattleConfig, InputError, parse_move, ParseError, make_actions};
 pub use stats::{Stats, EStats};
 
 mod warrior;
@@ -186,13 +186,15 @@ impl DeFight {
 
         println!("Parse result: {:?}", parse_result);
 
+        // TO DO: добавить ограничение по времени на ход
         match parse_result {
             Ok(actions) => {
-                println!("Actions: {:?}", actions)
+                let log_message = format!("Actions: {:?}", actions);
+                env::log(log_message.as_bytes());
+
+                let result = make_actions(&mut battle, actions);
             }
             Err(e) => match e {
-                InputError::TooFewActions =>
-                    panic!("\n *** You must specify two actions - Attack and Protect"),
                 InputError::WrongActions { actions: errors } => {
                     for error in errors {
                         match error {
@@ -203,8 +205,11 @@ impl DeFight {
                         }
                     }
                 }
+                InputError::TooFewActions =>
+                    panic!("\n *** You must specify two actions - Attack and Protect"),
             }
         }
+
         // match parse_result {
         //     Ok(positions) => {
         //         let move_result = util::apply_positions_as_move(&mut game, positions);

@@ -3,6 +3,9 @@ use lazy_static::lazy_static;
 use strum::{EnumVariantNames, VariantNames};
 use regex::Regex;
 use std::str::FromStr;
+// use rand::Rng;
+use near_sdk::env::random_seed;
+use enum_map::{enum_map, Enum, EnumMap};
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -33,7 +36,7 @@ impl From<EBattleConfig> for BattleConfig {
     }
 }
 
-#[derive(PartialEq, EnumVariantNames, Debug)]
+#[derive(PartialEq, EnumVariantNames, Debug, Copy, Clone)]
 pub enum Part {
     Head,
     Neck,
@@ -69,7 +72,7 @@ pub enum ParseError {
     WrongPart { part : String },
 }
 
-#[derive(PartialEq, EnumVariantNames, Debug)]
+#[derive(PartialEq, EnumVariantNames, Debug, Copy, Clone)]
 pub enum ActionType {
     Attack,
     Protect,
@@ -98,7 +101,7 @@ impl ActionType {
 
 // #[derive(Serialize, Deserialize)]
 // #[serde(crate = "near_sdk::serde")]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct MoveData {
     action: ActionType,
     part: Part,
@@ -178,6 +181,37 @@ pub fn parse_move(params : &str) -> Result<Vec<MoveData>, InputError> {
 
 	Ok(actions)
 }
+
+pub fn make_actions(battle: &mut Battle, actions: Vec<MoveData>) {
+    let partsMap = Part::VARIANTS;
+
+    let warrior_1_attack = actions[0].part;
+    let warrior_1_protect = actions[1].part;
+    
+    let attackSeed = *random_seed().get(0).unwrap();
+    let protectSeed = *random_seed().get(1).unwrap();
+
+    let mut attackIndex = attackSeed / 50; 
+    let mut protectIndex = protectSeed / 50; 
+
+    if attackIndex > 4 {
+        attackIndex = attackIndex - 4;
+    }
+    if protectIndex > 4 {
+        protectIndex = protectIndex - 4;
+    }
+
+    let warrior_2_attack = partsMap[attackIndex as usize];
+    let warrior_2_protect = partsMap[protectIndex as usize];
+
+    let log_message = format!("Attack part: {:?}", partsMap[attackIndex as usize]);
+    env::log(log_message.as_bytes());
+
+    let log_message = format!("Protect part: {:?}", partsMap[protectIndex as usize]);
+    env::log(log_message.as_bytes());
+}
+
+// pub(crate) fn apply_attack(&mut self, data:  )
 
 impl Battle {
     fn create_two_warriors(account_id_1: AccountId, account_id_2: AccountId) -> (Warrior, Warrior) {
