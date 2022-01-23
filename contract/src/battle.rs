@@ -6,13 +6,14 @@ use std::str::FromStr;
 // use rand::Rng;
 use near_sdk::env::random_seed;
 use enum_map::{enum_map, Enum, EnumMap};
+use std::num;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Battle {
     pub warrior_1: Warrior,
     pub warrior_2: Warrior,
-    pub winner: Option<usize>,
+    pub winner: Option<u32>,
     pub reward: Balance
 }
 
@@ -113,6 +114,12 @@ impl MoveData {
     }
 }
 
+pub struct WarriorsActions {
+    warrior_1: Warrior,
+    attack: String,
+    protect: String,
+}
+
 lazy_static! {
     // A Regular Expression used to find variant names in target strings. 
     //
@@ -182,38 +189,61 @@ pub fn parse_move(params : &str) -> Result<Vec<MoveData>, InputError> {
 	Ok(actions)
 }
 
-pub fn make_actions(battle: &mut Battle, actions: Vec<MoveData>) {
-    let partsMap = Part::VARIANTS;
-
-    let warrior_1_attack = actions[0].part;
-    let warrior_1_protect = actions[1].part;
-    
-    let attackSeed = *random_seed().get(0).unwrap();
-    let protectSeed = *random_seed().get(1).unwrap();
-
-    let mut attackIndex = attackSeed / 50; 
-    let mut protectIndex = protectSeed / 50; 
-
-    if attackIndex > 4 {
-        attackIndex = attackIndex - 4;
-    }
-    if protectIndex > 4 {
-        protectIndex = protectIndex - 4;
-    }
-
-    let warrior_2_attack = partsMap[attackIndex as usize];
-    let warrior_2_protect = partsMap[protectIndex as usize];
-
-    let log_message = format!("Attack part: {:?}", partsMap[attackIndex as usize]);
-    env::log(log_message.as_bytes());
-
-    let log_message = format!("Protect part: {:?}", partsMap[protectIndex as usize]);
-    env::log(log_message.as_bytes());
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct BattleToSave {
+    pub(crate) warrior_1: Warrior,
+    pub(crate) warrior_2: Warrior,
+    pub(crate) winner: Option<u32>,
+    pub(crate) reward: Balance
 }
 
-// pub(crate) fn apply_attack(&mut self, data:  )
+impl From<Battle> for BattleToSave {
+    fn from(battle: Battle) -> Self {
+        // let board: BattleToSave = battle.board.into();
+        // let 
 
-impl Battle {
+        // let already_spent = game.total_time_spent[1 - game.current_player_index];
+        // let spent_for_this_turn = env::block_timestamp() - game.last_turn_timestamp;
+
+        // let mut total_time_spent = game.total_time_spent;
+        // total_time_spent[1 - game.current_player_index] = already_spent + spent_for_this_turn;
+
+        BattleToSave {
+            warrior_1: battle.warrior_1.clone(),
+            warrior_2: battle.warrior_2.clone(),
+            winner: None,
+            reward: 0,
+        }
+    }
+}
+
+impl From<BattleToSave> for Battle {
+    fn from(battle_to_save: BattleToSave) -> Self {
+
+        let mut battle = Battle {
+            warrior_1: battle_to_save.warrior_1,
+            warrior_2: battle_to_save.warrior_2,
+            winner: None,
+            reward: 0,
+        };
+
+        battle
+    }
+}
+
+impl BattleToSave {
+    pub fn new(account_id_1: AccountId, account_id_2: AccountId, reward: Option<Balance>) -> BattleToSave {
+        let (warrior_1, warrior_2) = BattleToSave::create_two_warriors(account_id_1, account_id_2);
+
+        BattleToSave {
+            warrior_1,
+            warrior_2,
+            winner: None,
+            reward: reward.unwrap_or(0),
+        }
+    }
+
     fn create_two_warriors(account_id_1: AccountId, account_id_2: AccountId) -> (Warrior, Warrior) {
         // TO DO: Add checking NFT and modify warrior characteristics
         (
@@ -224,7 +254,7 @@ impl Battle {
                 stamina: BASE_STAMINA,
                 agility: BASE_AGILITY,
                 intuition: BASE_INTUITION,
-                life: BASE_LIFE,
+                health: BASE_HEALTH,
                 defense: BASE_DEFENSE,
             },
             Warrior {
@@ -234,7 +264,104 @@ impl Battle {
                 stamina: BASE_STAMINA,
                 agility: BASE_AGILITY,
                 intuition: BASE_INTUITION,
-                life: BASE_LIFE,
+                health: BASE_HEALTH,
+                defense: BASE_DEFENSE,
+            },
+        )
+    }
+}
+
+impl Battle {
+    // fn apply_attack(&mut self, warriors_actions: WarriorsActions) {
+
+    // }
+    pub fn make_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
+        let partsMap = Part::VARIANTS;
+    
+        let warrior_1_attack = actions[0].part;
+        let warrior_1_protect = actions[1].part;
+        
+        let attackSeed = *random_seed().get(0).unwrap();
+        let protectSeed = *random_seed().get(1).unwrap();
+    
+        let mut attackIndex = attackSeed / 50; 
+        let mut protectIndex = protectSeed / 50; 
+    
+        if attackIndex > 4 {
+            attackIndex = attackIndex - 4;
+        }
+        if protectIndex > 4 {
+            protectIndex = protectIndex - 4;
+        }
+    
+        let warrior_2_attack = Part::from_str(partsMap[attackIndex as usize]).unwrap();
+        let warrior_2_protect = Part::from_str(partsMap[protectIndex as usize]).unwrap();
+    
+        let log_message = format!("Attack part: {:?}", partsMap[attackIndex as usize]);
+        env::log(log_message.as_bytes());
+    
+        let log_message = format!("Protect part: {:?}", partsMap[protectIndex as usize]);
+        env::log(log_message.as_bytes());
+    
+        let damage_to_2;
+        if warrior_1_attack != warrior_2_protect {
+            damage_to_2 = self.warrior_1.strength.clone();
+        } else {
+            damage_to_2 = self.warrior_2.defense.clone() - self.warrior_1.strength.clone();
+        }
+    
+        let warrior_2_health = self.warrior_2.health.clone() - damage_to_2;
+        
+        let log_message = format!("Warrior 2 health: {}", warrior_2_health);
+        env::log(log_message.as_bytes());
+    
+        let damage_to_1;
+        if warrior_2_attack != warrior_1_protect {
+            damage_to_1 = self.warrior_2.strength.clone();
+        } else {
+            damage_to_1 = self.warrior_1.defense.clone() - self.warrior_2.strength.clone();
+        }
+    
+        let warrior_1_health = self.warrior_2.health.clone() - damage_to_2;
+    
+        let log_message = format!("Warrior 1 health: {}", warrior_1_health);
+        env::log(log_message.as_bytes());
+    
+        self.warrior_1.health = warrior_1_health;
+        self.warrior_2.health = warrior_2_health;
+        self.winner = Some(100);
+
+        // self.into()
+    
+        BattleToSave {
+            warrior_1: self.warrior_1.clone(),
+            warrior_2: self.warrior_2.clone(),
+            winner: None,
+            reward: 0,
+        }
+    }
+
+    fn create_two_warriors(account_id_1: AccountId, account_id_2: AccountId) -> (Warrior, Warrior) {
+        // TO DO: Add checking NFT and modify warrior characteristics
+        (
+            Warrior {
+                id: 1,
+                account_id: Some(account_id_1),
+                strength: BASE_STRENGTH,
+                stamina: BASE_STAMINA,
+                agility: BASE_AGILITY,
+                intuition: BASE_INTUITION,
+                health: BASE_HEALTH,
+                defense: BASE_DEFENSE,
+            },
+            Warrior {
+                id: 2,
+                account_id: Some(account_id_2),
+                strength: BASE_STRENGTH,
+                stamina: BASE_STAMINA,
+                agility: BASE_AGILITY,
+                intuition: BASE_INTUITION,
+                health: BASE_HEALTH,
                 defense: BASE_DEFENSE,
             },
         )

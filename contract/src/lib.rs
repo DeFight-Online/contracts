@@ -5,7 +5,7 @@ use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
 
 pub use warrior::Warrior;
-pub use battle::{Battle, EBattleConfig, InputError, parse_move, ParseError, make_actions};
+pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError};
 pub use stats::{Stats, EStats};
 
 mod warrior;
@@ -18,7 +18,7 @@ const BASE_STRENGTH: u16 = 1;
 const BASE_STAMINA: u16 = 1;
 const BASE_AGILITY: u16 = 1;
 const BASE_INTUITION: u16 = 1;
-const BASE_LIFE: u16 = 100;
+const BASE_HEALTH: u16 = 100;
 const BASE_DEFENSE: u16 = 10;
 
 near_sdk::setup_alloc!();
@@ -48,7 +48,7 @@ pub enum UpdateStatsAction {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct DeFight {
-    battles: LookupMap<BattleId, Battle>,
+    battles: LookupMap<BattleId, BattleToSave>,
     available_warriors: UnorderedMap<AccountId, EBattleConfig>,
     stats: UnorderedMap<AccountId, EStats>,
     available_battles: UnorderedMap<BattleId, (AccountId, AccountId)>,
@@ -136,7 +136,7 @@ impl DeFight {
         }
     }
 
-    pub fn get_battle(&self, battle_id: &BattleId) -> Battle {
+    pub fn get_battle(&self, battle_id: &BattleId) -> BattleToSave {
         self.battles.get(battle_id).expect("Battle not found")
     }
 
@@ -158,7 +158,7 @@ impl DeFight {
 
             let battle_id = self.next_battle_id;
 
-            let battle = Battle::new(account_id.clone(), account_id.clone(), None);
+            let battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
 
             self.battles.insert(&battle_id, &battle);
             // self.available_battles.insert(&battle_id, &(account_id.clone(), account_id.clone()));
@@ -192,7 +192,9 @@ impl DeFight {
                 let log_message = format!("Actions: {:?}", actions);
                 env::log(log_message.as_bytes());
 
-                let result = make_actions(&mut battle, actions);
+                battle.winner = Some(50);
+                let result = battle.make_actions(actions);
+                self.battles.insert(&battle_id, &result);
             }
             Err(e) => match e {
                 InputError::WrongActions { actions: errors } => {
