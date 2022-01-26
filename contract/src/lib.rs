@@ -5,7 +5,7 @@ use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
 
 pub use warrior::Warrior;
-pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError};
+pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError, BattleState};
 pub use stats::{Stats, EStats};
 
 mod warrior;
@@ -18,8 +18,8 @@ const BASE_STRENGTH: u16 = 1;
 const BASE_STAMINA: u16 = 1;
 const BASE_AGILITY: u16 = 1;
 const BASE_INTUITION: u16 = 1;
-const BASE_HEALTH: u16 = 100;
-const BASE_DEFENSE: u16 = 10;
+const BASE_HEALTH: u16 = 10;
+const BASE_DEFENSE: u16 = 1;
 
 near_sdk::setup_alloc!();
 
@@ -192,10 +192,27 @@ impl DeFight {
                 let log_message = format!("Actions: {:?}", actions);
                 env::log(log_message.as_bytes());
 
-                battle.winner = Some(50);
                 let result = battle.make_actions(actions);
+
+                let log_message = format!("Result: {:?}", result);
+                env::log(log_message.as_bytes());   
                 self.battles.insert(&battle_id, &result);
-            }
+
+                if result.winner == Some(0) {
+                    let log_message = format!("Battle is over! Draw");
+                    env::log(log_message.as_bytes());  
+                }
+
+                if result.winner == Some(1) {
+                    let log_message = format!("Battle is over! Winner: {:?}", result.warrior_1.account_id);
+                    env::log(log_message.as_bytes());  
+                }
+
+                if result.winner == Some(2) {
+                    let log_message = format!("Battle is over! Winner: {:?}", result.warrior_2.account_id);
+                    env::log(log_message.as_bytes());  
+                }
+            },
             Err(e) => match e {
                 InputError::WrongActions { actions: errors } => {
                     for error in errors {

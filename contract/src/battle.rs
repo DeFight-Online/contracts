@@ -189,7 +189,7 @@ pub fn parse_move(params : &str) -> Result<Vec<MoveData>, InputError> {
 	Ok(actions)
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BattleToSave {
     pub(crate) warrior_1: Warrior,
@@ -259,7 +259,7 @@ impl BattleToSave {
             },
             Warrior {
                 id: 2,
-                account_id: Some(account_id_2),
+                account_id: Some(account_id_2 + " (bot)"),
                 strength: BASE_STRENGTH,
                 stamina: BASE_STAMINA,
                 agility: BASE_AGILITY,
@@ -269,6 +269,11 @@ impl BattleToSave {
             },
         )
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BattleState {
+    BattleOver { winner: u32 },
 }
 
 impl Battle {
@@ -305,9 +310,9 @@ impl Battle {
     
         let damage_to_2;
         if warrior_1_attack != warrior_2_protect {
-            damage_to_2 = self.warrior_1.strength.clone();
+            damage_to_2 = 2 * self.warrior_1.strength.clone();
         } else {
-            damage_to_2 = self.warrior_2.defense.clone() - self.warrior_1.strength.clone();
+            damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
         }
     
         let warrior_2_health = self.warrior_2.health.clone() - damage_to_2;
@@ -316,28 +321,61 @@ impl Battle {
         env::log(log_message.as_bytes());
     
         let damage_to_1;
+
         if warrior_2_attack != warrior_1_protect {
-            damage_to_1 = self.warrior_2.strength.clone();
+            damage_to_1 = 2 * self.warrior_2.strength.clone();
         } else {
-            damage_to_1 = self.warrior_1.defense.clone() - self.warrior_2.strength.clone();
+            damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
         }
     
-        let warrior_1_health = self.warrior_2.health.clone() - damage_to_2;
-    
-        let log_message = format!("Warrior 1 health: {}", warrior_1_health);
-        env::log(log_message.as_bytes());
-    
-        self.warrior_1.health = warrior_1_health;
-        self.warrior_2.health = warrior_2_health;
-        self.winner = Some(100);
+        if self.warrior_1.health.clone() > damage_to_1 && self.warrior_2.health.clone() > damage_to_2 {
+            let warrior_1_health = self.warrior_1.health.clone() - damage_to_1;
 
-        // self.into()
-    
-        BattleToSave {
-            warrior_1: self.warrior_1.clone(),
-            warrior_2: self.warrior_2.clone(),
-            winner: None,
-            reward: 0,
+            let log_message = format!("Warrior 1 health: {}", warrior_1_health);
+            env::log(log_message.as_bytes());
+        
+            self.warrior_1.health = warrior_1_health;
+            self.warrior_2.health = warrior_2_health;
+            self.winner = Some(100);
+        
+            
+            BattleToSave {
+                warrior_1: self.warrior_1.clone(),
+                warrior_2: self.warrior_2.clone(),
+                winner: None,
+                reward: 0,
+            }
+        } else {
+            let mut is_warrior_1_dead = false;
+            let mut is_warrior_2_dead = false;
+            let mut winner = 0;
+
+            if self.warrior_1.health.clone() <= damage_to_1 {
+                is_warrior_1_dead = true;
+            }
+
+            if self.warrior_2.health.clone() <= damage_to_2 {
+                is_warrior_2_dead = true;
+            }
+
+            if is_warrior_1_dead && !is_warrior_2_dead {
+                // return Err(BattleState::BattleOver { winner: self.warrior_2.id });
+                winner = self.warrior_2.id;
+                self.warrior_1.health = 0;
+            }
+
+            if !is_warrior_1_dead && is_warrior_2_dead {
+                // return Err(BattleState::BattleOver { winner: self.warrior_1.id });
+                winner = self.warrior_2.id;
+                self.warrior_2.health = 0;
+            }
+
+            BattleToSave {
+                warrior_1: self.warrior_1.clone(),
+                warrior_2: self.warrior_2.clone(),
+                winner: Some(winner),
+                reward: 0,
+            }
         }
     }
 
