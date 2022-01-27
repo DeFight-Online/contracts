@@ -137,7 +137,12 @@ impl DeFight {
     }
 
     pub fn get_battle(&self, battle_id: &BattleId) -> BattleToSave {
-        self.battles.get(battle_id).expect("Battle not found")
+        let battle = self.battles.get(battle_id).expect("Battle not found");
+
+        let log_message = format!("Battle state: {:?}", battle);
+        env::log(log_message.as_bytes());
+
+        battle
     }
 
     pub(crate) fn is_battle_started(&self, account_id: &AccountId) {
@@ -174,17 +179,13 @@ impl DeFight {
 
     pub fn make_move(&mut self, battle_id: BattleId, params: String) {
         let mut battle: Battle = self.get_battle(&battle_id).into();
-        assert!(battle.winner.is_none(), "Battle already finished");
+        
+        assert!(battle.winner.is_none(), "Battle has already finished");
 
-        let mut update_battle = false;
-        // let active_warrior = battle.current_warrior_account_id();
-        // assert_eq!(active_warrior, env::predecessor_account_id(), "No access");
-
-        // display::print_board(game.board());
+        let log_message = format!("Battle state: {:?}", battle.winner.is_none());
+        env::log(log_message.as_bytes());
 
         let parse_result = parse_move(&params);
-
-        println!("Parse result: {:?}", parse_result);
 
         // TO DO: добавить ограничение по времени на ход
         match parse_result {
@@ -228,61 +229,6 @@ impl DeFight {
                     panic!("\n *** You must specify two actions - Attack and Protect"),
             }
         }
-
-        // match parse_result {
-        //     Ok(positions) => {
-        //         let move_result = util::apply_positions_as_move(&mut game, positions);
-        //         match move_result {
-        //             Ok(game_state) => match game_state {
-        //                 GameState::InProgress => {
-        //                     update_game = true;
-        //                 }
-        //                 GameState::GameOver { winner_id: winner_index } => {
-        //                     let winner_account = game.players[winner_index].account_id.clone();
-        //                     self.internal_distribute_reward(&game.reward, &winner_account);
-        //                     game.winner_index = Some(winner_index);
-
-        //                     self.internal_stop_game(game_id);
-
-        //                     update_game = true;
-
-        //                     log!("\nGame over! {} won!", winner_account);
-        //                 }
-        //             },
-        //             Err(e) => match e {
-        //                 MoveError::InvalidMove => panic!("\n *** Illegal move"),
-        //                 MoveError::ShouldHaveJumped => panic!("\n *** Must take jump")
-        //             }
-        //         }
-        //     }
-        //     Err(e) => match e {
-        //         InputError::TooFewTokens =>
-        //             panic!("\n *** You must specify at least two board positions"),
-        //         InputError::InvalidTokens { tokens: errors } => {
-        //             for error in errors {
-        //                 match error {
-        //                     TokenError::MissingFile { token } =>
-        //                         panic!("\n *** Board position '{}' must specify file", token),
-        //                     TokenError::MissingRank { token } =>
-        //                         panic!("\n *** Board position '{}' must specify rank", token),
-        //                     TokenError::ZeroRank { token } =>
-        //                         panic!("\n *** Rank cannot be zero: {}", token),
-        //                     TokenError::InvalidCharacter { token, char_index } => {
-        //                         let ch = token.chars().nth(char_index).unwrap();
-        //                         panic!("\n *** Board position '{}' contains invalid character '{}'", token, ch);
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-
-        // if update_game {
-        //     // display::print_board(game.board());
-        //     game.turns += 1;
-        //     let game_to_save: GameToSave = game.into();
-        //     self.games.insert(&game_id, &game_to_save);
-        // }
     }
 }
 

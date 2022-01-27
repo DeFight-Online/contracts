@@ -8,7 +8,7 @@ use near_sdk::env::random_seed;
 use enum_map::{enum_map, Enum, EnumMap};
 use std::num;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Battle {
     pub warrior_1: Warrior,
@@ -221,11 +221,11 @@ impl From<Battle> for BattleToSave {
 impl From<BattleToSave> for Battle {
     fn from(battle_to_save: BattleToSave) -> Self {
 
-        let mut battle = Battle {
+        let battle = Battle {
             warrior_1: battle_to_save.warrior_1,
             warrior_2: battle_to_save.warrior_2,
-            winner: None,
-            reward: 0,
+            winner: battle_to_save.winner,
+            reward: battle_to_save.reward,
         };
 
         battle
