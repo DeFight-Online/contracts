@@ -14,7 +14,10 @@ pub struct Battle {
     pub warrior_1: Warrior,
     pub warrior_2: Warrior,
     pub winner: Option<u32>,
-    pub reward: Balance
+    pub reward: Balance,
+    pub last_action_timestamp: Timestamp,
+    pub warrior_1_missed_action: bool,
+    pub warrior_2_missed_action: bool,
 }
 
 #[derive(BorshSerialize, BorshDeserialize/*, Serialize, Deserialize*/)]
@@ -195,25 +198,22 @@ pub struct BattleToSave {
     pub(crate) warrior_1: Warrior,
     pub(crate) warrior_2: Warrior,
     pub(crate) winner: Option<u32>,
-    pub(crate) reward: Balance
+    pub(crate) reward: Balance,
+    pub(crate) last_action_timestamp: Timestamp,
+    pub(crate) warrior_1_missed_action: bool,
+    pub(crate) warrior_2_missed_action: bool,
 }
 
 impl From<Battle> for BattleToSave {
     fn from(battle: Battle) -> Self {
-        // let board: BattleToSave = battle.board.into();
-        // let 
-
-        // let already_spent = game.total_time_spent[1 - game.current_player_index];
-        // let spent_for_this_turn = env::block_timestamp() - game.last_turn_timestamp;
-
-        // let mut total_time_spent = game.total_time_spent;
-        // total_time_spent[1 - game.current_player_index] = already_spent + spent_for_this_turn;
-
         BattleToSave {
             warrior_1: battle.warrior_1.clone(),
             warrior_2: battle.warrior_2.clone(),
-            winner: None,
+            winner: battle.winner,
             reward: 0,
+            last_action_timestamp: battle.last_action_timestamp,
+            warrior_1_missed_action: battle.warrior_1_missed_action,
+            warrior_2_missed_action: battle.warrior_2_missed_action,
         }
     }
 }
@@ -226,6 +226,9 @@ impl From<BattleToSave> for Battle {
             warrior_2: battle_to_save.warrior_2,
             winner: battle_to_save.winner,
             reward: battle_to_save.reward,
+            last_action_timestamp: battle_to_save.last_action_timestamp,
+            warrior_1_missed_action: battle_to_save.warrior_1_missed_action,
+            warrior_2_missed_action: battle_to_save.warrior_2_missed_action,
         };
 
         battle
@@ -241,6 +244,9 @@ impl BattleToSave {
             warrior_2,
             winner: None,
             reward: reward.unwrap_or(0),
+            last_action_timestamp: env::block_timestamp(),
+            warrior_1_missed_action: false,
+            warrior_2_missed_action: false,
         }
     }
 
@@ -308,30 +314,51 @@ impl Battle {
         let log_message = format!("Protect part: {:?}", partsMap[protectIndex as usize]);
         env::log(log_message.as_bytes());
     
-        let damage_to_2;
-        if warrior_1_attack != warrior_2_protect {
-            damage_to_2 = 2 * self.warrior_1.strength.clone();
+        let log_message = format!("Block timestamp {}", env::block_timestamp());
+        env::log(log_message.as_bytes());
+
+        let log_message = format!("Last action timestamp {}", self.last_action_timestamp);
+        env::log(log_message.as_bytes());
+
+        if env::block_timestamp() > self.last_action_timestamp + MAX_MS_FOR_ACTION {
+            self.warrior_1_missed_action = true;
+
+            let log_message = format!("Time for action is over");
+            env::log(log_message.as_bytes());
         } else {
-            damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
+            self.warrior_1_missed_action = false;
+        }
+
+        let damage_to_2;
+        if self.warrior_1_missed_action {
+            damage_to_2 = 0;
+        } else {
+            if warrior_1_attack != warrior_2_protect || self.warrior_2_missed_action {
+                damage_to_2 = 2 * self.warrior_1.strength.clone();
+            } else {
+                damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
+            }
         }
     
-        let warrior_2_health = self.warrior_2.health.clone() - damage_to_2;
-        
-        let log_message = format!("Warrior 2 health: {}", warrior_2_health);
-        env::log(log_message.as_bytes());
-    
         let damage_to_1;
-
-        if warrior_2_attack != warrior_1_protect {
-            damage_to_1 = 2 * self.warrior_2.strength.clone();
+        if self.warrior_2_missed_action {
+            damage_to_1 = 0;
         } else {
-            damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
+            if warrior_2_attack != warrior_1_protect || self.warrior_1_missed_action {
+                damage_to_1 = 2 * self.warrior_2.strength.clone();
+            } else {
+                damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
+            }
         }
     
         if self.warrior_1.health.clone() > damage_to_1 && self.warrior_2.health.clone() > damage_to_2 {
             let warrior_1_health = self.warrior_1.health.clone() - damage_to_1;
+            let warrior_2_health = self.warrior_2.health.clone() - damage_to_2;
 
             let log_message = format!("Warrior 1 health: {}", warrior_1_health);
+            env::log(log_message.as_bytes());
+
+            let log_message = format!("Warrior 2 health: {}", warrior_2_health);
             env::log(log_message.as_bytes());
         
             self.warrior_1.health = warrior_1_health;
@@ -344,6 +371,9 @@ impl Battle {
                 warrior_2: self.warrior_2.clone(),
                 winner: None,
                 reward: 0,
+                last_action_timestamp: env::block_timestamp(),
+                warrior_1_missed_action: self.warrior_1_missed_action,
+                warrior_2_missed_action: self.warrior_2_missed_action,
             }
         } else {
             let mut is_warrior_1_dead = false;
@@ -375,6 +405,9 @@ impl Battle {
                 warrior_2: self.warrior_2.clone(),
                 winner: Some(winner),
                 reward: 0,
+                last_action_timestamp: env::block_timestamp(),
+                warrior_1_missed_action: self.warrior_1_missed_action,
+                warrior_2_missed_action: self.warrior_2_missed_action,
             }
         }
     }
@@ -413,8 +446,10 @@ impl Battle {
             warrior_2,
             winner: None,
             reward: reward.unwrap_or(0),
+            last_action_timestamp: env::block_timestamp(),
+            warrior_1_missed_action: false,
+            warrior_2_missed_action: false,
         }
-        
     }
 }
 

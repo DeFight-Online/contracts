@@ -1,4 +1,4 @@
-use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log};
+use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log, Timestamp};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
@@ -20,6 +20,8 @@ const BASE_AGILITY: u16 = 1;
 const BASE_INTUITION: u16 = 1;
 const BASE_HEALTH: u16 = 10;
 const BASE_DEFENSE: u16 = 1;
+
+const MAX_MS_FOR_ACTION: u64 = 60_000_000_000;
 
 near_sdk::setup_alloc!();
 
@@ -153,7 +155,7 @@ impl DeFight {
         assert_eq!(battles_already_started.len(), 0, "Another battle already started");
     }
 
-    pub fn start_game(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> BattleId {
+    pub fn start_battle(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> BattleId {
         if let Some(opponent) = self.available_warriors.get(&opponent_id.unwrap_or("".to_string())) {
             panic!("PvP mode is not ready yet");
         } else {
