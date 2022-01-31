@@ -7,7 +7,6 @@ pub enum EStats {
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Stats {
-    // TO DO: Need to figure out why I need to add pub keyword to field name
     pub referrer_id: Option<AccountId>,
     pub affiliates: UnorderedSet<AccountId>,
     pub battles_num: u64,

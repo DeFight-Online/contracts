@@ -3,10 +3,7 @@ use lazy_static::lazy_static;
 use strum::{EnumVariantNames, VariantNames};
 use regex::Regex;
 use std::str::FromStr;
-// use rand::Rng;
 use near_sdk::env::random_seed;
-use enum_map::{enum_map, Enum, EnumMap};
-use std::num;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
@@ -20,8 +17,7 @@ pub struct Battle {
     pub warrior_2_missed_action: bool,
 }
 
-#[derive(BorshSerialize, BorshDeserialize/*, Serialize, Deserialize*/)]
-// #[serde(crate = "near_sdk::serde")]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct BattleConfig {
     pub(crate) deposit: Option<Balance>,
     pub(crate) opponent_id: Option<AccountId>,
@@ -94,17 +90,6 @@ impl FromStr for ActionType {
     }
 }
 
-impl ActionType {
-    fn as_str(&self) -> &'static str {
-        match self {
-            ActionType::Attack => "attack",
-            ActionType::Protect => "protect"
-        }
-    }
-}
-
-// #[derive(Serialize, Deserialize)]
-// #[serde(crate = "near_sdk::serde")]
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct MoveData {
     action: ActionType,
@@ -117,15 +102,9 @@ impl MoveData {
     }
 }
 
-pub struct WarriorsActions {
-    warrior_1: Warrior,
-    attack: String,
-    protect: String,
-}
 
 lazy_static! {
     // A Regular Expression used to find variant names in target strings. 
-    //
     static ref ACTION_EXPR: Regex = {
         // Piece together the expression from Thing's variant names.
         let expr_str = ActionType::VARIANTS.join("|");
@@ -283,35 +262,32 @@ pub enum BattleState {
 }
 
 impl Battle {
-    // fn apply_attack(&mut self, warriors_actions: WarriorsActions) {
-
-    // }
     pub fn make_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
-        let partsMap = Part::VARIANTS;
+        let parts_map = Part::VARIANTS;
     
         let warrior_1_attack = actions[0].part;
         let warrior_1_protect = actions[1].part;
         
-        let attackSeed = *random_seed().get(0).unwrap();
-        let protectSeed = *random_seed().get(1).unwrap();
+        let attack_seed = *random_seed().get(0).unwrap();
+        let protect_seed = *random_seed().get(1).unwrap();
     
-        let mut attackIndex = attackSeed / 50; 
-        let mut protectIndex = protectSeed / 50; 
+        let mut attack_index = attack_seed / 50; 
+        let mut protect_index = protect_seed / 50; 
     
-        if attackIndex > 4 {
-            attackIndex = attackIndex - 4;
+        if attack_index > 4 {
+            attack_index = attack_index - 4;
         }
-        if protectIndex > 4 {
-            protectIndex = protectIndex - 4;
+        if protect_index > 4 {
+            protect_index = protect_index - 4;
         }
     
-        let warrior_2_attack = Part::from_str(partsMap[attackIndex as usize]).unwrap();
-        let warrior_2_protect = Part::from_str(partsMap[protectIndex as usize]).unwrap();
+        let warrior_2_attack = Part::from_str(parts_map[attack_index as usize]).unwrap();
+        let warrior_2_protect = Part::from_str(parts_map[protect_index as usize]).unwrap();
     
-        let log_message = format!("Attack part: {:?}", partsMap[attackIndex as usize]);
+        let log_message = format!("Attack part: {:?}", parts_map[attack_index as usize]);
         env::log(log_message.as_bytes());
     
-        let log_message = format!("Protect part: {:?}", partsMap[protectIndex as usize]);
+        let log_message = format!("Protect part: {:?}", parts_map[protect_index as usize]);
         env::log(log_message.as_bytes());
     
         let log_message = format!("Block timestamp {}", env::block_timestamp());

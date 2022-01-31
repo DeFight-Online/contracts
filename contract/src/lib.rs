@@ -156,7 +156,7 @@ impl DeFight {
     }
 
     pub fn start_battle(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> BattleId {
-        if let Some(opponent) = self.available_warriors.get(&opponent_id.unwrap_or("".to_string())) {
+        if let Some(_opponent) = self.available_warriors.get(&opponent_id.unwrap_or("".to_string())) {
             panic!("PvP mode is not ready yet");
         } else {
             let account_id = env::predecessor_account_id();
@@ -168,11 +168,9 @@ impl DeFight {
             let battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
 
             self.battles.insert(&battle_id, &battle);
-            // self.available_battles.insert(&battle_id, &(account_id.clone(), account_id.clone()));
             self.next_battle_id += 1;
-            // self.available_warriors.remove(&account_id);
+        
             self.add_referral(&account_id, &referrer_id);
-
             self.update_stats(&account_id, UpdateStatsAction::AddBattle, None, None);
 
             battle_id
@@ -189,7 +187,6 @@ impl DeFight {
 
         let parse_result = parse_move(&params);
 
-        // TO DO: добавить ограничение по времени на ход
         match parse_result {
             Ok(actions) => {
                 let log_message = format!("Actions: {:?}", actions);
@@ -236,23 +233,4 @@ impl DeFight {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    // use near_sdk::MockedBlockchain;
-    // use near_sdk::testing_env;
-    use near_sdk::test_utils::VMContextBuilder;
-    use near_sdk::json_types::ValidAccountId;
-    use near_sdk::serde::export::TryFrom;
-
-    // simple helper function to take a string literal and return a ValidAccountId
-    fn to_valid_account(account: &str) -> ValidAccountId {
-        ValidAccountId::try_from(account.to_string()).expect("Invalid account")
-    }
-
-    // part of writing unit tests is setting up a mock context
-    // provide a `predecessor` here, it'll modify the default context
-    fn get_context(predecessor: ValidAccountId) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder.predecessor_account_id(predecessor);
-        builder
-    }
 }
