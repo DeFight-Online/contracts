@@ -1,16 +1,23 @@
-use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log, Timestamp};
+use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log, Timestamp, PromiseResult};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::json_types::U128;
+use near_contract_standards::non_fungible_token::{Token, TokenId, NonFungibleToken};
+// use near_contract_standards::non_fungible_token::metadata::{
+//   NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
+// };
 
 pub use warrior::Warrior;
 pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError, BattleState};
 pub use stats::{Stats, EStats};
+pub use crate::callbacks::*;
 
 mod warrior;
 mod battle;
 mod stats;
+mod callbacks;
 
 type BattleId = u64;
 
@@ -76,6 +83,25 @@ impl DeFight {
 
 #[near_bindgen]
 impl DeFight {
+    #[result_serializer(borsh)]
+    pub fn resolve_get(
+        &mut self,
+    ) {
+        let log_message = format!("Cross-contract callback");
+        env::log(log_message.as_bytes());
+
+        env::log(log_message.as_bytes()); 
+        match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
+            PromiseResult::Successful(result) => {
+                // let balance = near_sdk::serde_json::from_slice::<U128>(&result).unwrap();
+                let log_message = format!("User tokens: {:?}", result);
+                env::log(log_message.as_bytes());
+            },
+          }
+    }
+
     pub(crate) fn is_account_exists(&self, account_id: &Option<AccountId>) -> bool {
         if let Some(account_id_unwrapped) = account_id {
             self.stats.get(account_id_unwrapped).is_some()
@@ -177,10 +203,29 @@ impl DeFight {
         }
     }
 
+    #[result_serializer(borsh)]
     pub fn make_move(&mut self, battle_id: BattleId, params: String) {
         let mut battle: Battle = self.get_battle(&battle_id).into();
         
         assert!(battle.winner.is_none(), "Battle has already finished");
+
+        // const account_id: String = env::predecessor_account_id();
+        // Initiating receiver's call and the callback
+        ext_paras_receiver::nft_tokens_for_owner(
+            env::signer_account_id(),
+            None,
+            None,
+            &"paras-token-v2.testnet".to_string(), //contract account to make the call to
+            0, //attached deposit
+            5_000_000_000_000,
+        )
+
+        //we then resolve the promise and call nft_resolve_transfer on our own contract
+        .then(ext_self::resolve_get(
+            &env::current_account_id(), //contract account to make the call to
+            0, //attached deposit
+            5_000_000_000_000, //GAS attached to the call
+        ));
 
         let log_message = format!("Battle state: {:?}", battle.winner.is_none());
         env::log(log_message.as_bytes());
