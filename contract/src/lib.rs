@@ -204,7 +204,7 @@ impl DeFight {
     }
 
     #[result_serializer(borsh)]
-    pub fn make_move(&mut self, battle_id: BattleId, params: String) {
+    pub fn make_action(&mut self, battle_id: BattleId, params: String) {
         let mut battle: Battle = self.get_battle(&battle_id).into();
         
         assert!(battle.winner.is_none(), "Battle has already finished");
@@ -237,7 +237,7 @@ impl DeFight {
                 let log_message = format!("Actions: {:?}", actions);
                 env::log(log_message.as_bytes());
 
-                let result = battle.make_actions(actions);
+                let result = battle.apply_actions(actions);
 
                 let log_message = format!("Result: {:?}", result);
                 env::log(log_message.as_bytes());   

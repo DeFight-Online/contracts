@@ -262,7 +262,7 @@ pub enum BattleState {
 }
 
 impl Battle {
-    pub fn make_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
+    pub fn apply_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
         let parts_map = Part::VARIANTS;
     
         let warrior_1_attack = actions[0].part;
