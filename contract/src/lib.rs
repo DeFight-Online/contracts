@@ -1,10 +1,10 @@
-use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log, Timestamp, PromiseResult};
+use near_sdk::{AccountId, Balance, PanicOnDefault, BorshStorageKey, log, Timestamp, PromiseResult, Promise};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::json_types::U128;
-use near_contract_standards::non_fungible_token::{Token, TokenId, NonFungibleToken};
+// use near_sdk::json_types::U128;
+use near_contract_standards::non_fungible_token::{TokenId};
 // use near_contract_standards::non_fungible_token::metadata::{
 //   NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 // };
@@ -12,12 +12,14 @@ use near_contract_standards::non_fungible_token::{Token, TokenId, NonFungibleTok
 pub use warrior::Warrior;
 pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError, BattleState};
 pub use stats::{Stats, EStats};
+pub use nft::*;
 pub use crate::callbacks::*;
 
 mod warrior;
 mod battle;
 mod stats;
 mod callbacks;
+mod nft;
 
 type BattleId = u64;
 
@@ -34,6 +36,8 @@ near_sdk::setup_alloc!();
 
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {
+    OwnerIds,
+    TokensSeries,
     Battles,
     AvailableWarriors,
     Stats,
@@ -57,6 +61,8 @@ pub enum UpdateStatsAction {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct DeFight {
+    owner_ids: UnorderedSet<AccountId>,
+    tokens_series: UnorderedSet<TokenId>,
     battles: LookupMap<BattleId, BattleToSave>,
     available_warriors: UnorderedMap<AccountId, EBattleConfig>,
     stats: UnorderedMap<AccountId, EStats>,
@@ -69,39 +75,25 @@ pub struct DeFight {
 impl DeFight {
     #[init]
     pub fn new() -> Self {
-        Self {
+        let mut this = Self {
+            owner_ids: UnorderedSet::new(StorageKey::OwnerIds),
+            tokens_series: UnorderedSet::new(StorageKey::TokensSeries),
             battles: LookupMap::new(StorageKey::Battles),
             available_warriors: UnorderedMap::new(StorageKey::AvailableWarriors),
             stats: UnorderedMap::new(StorageKey::Stats),
             available_battles: UnorderedMap::new(StorageKey::AvailableBattles),
-
             next_battle_id: 0,
             service_fee: 0,
-        }
+        };
+
+        this.owner_ids.insert(&env::predecessor_account_id());
+
+        this
     }
 }
 
 #[near_bindgen]
 impl DeFight {
-    #[result_serializer(borsh)]
-    pub fn resolve_get(
-        &mut self,
-    ) {
-        let log_message = format!("Cross-contract callback");
-        env::log(log_message.as_bytes());
-
-        env::log(log_message.as_bytes()); 
-        match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
-            PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
-            PromiseResult::Successful(result) => {
-                // let balance = near_sdk::serde_json::from_slice::<U128>(&result).unwrap();
-                let log_message = format!("User tokens: {:?}", result);
-                env::log(log_message.as_bytes());
-            },
-          }
-    }
-
     pub(crate) fn is_account_exists(&self, account_id: &Option<AccountId>) -> bool {
         if let Some(account_id_unwrapped) = account_id {
             self.stats.get(account_id_unwrapped).is_some()
@@ -181,7 +173,45 @@ impl DeFight {
         assert_eq!(battles_already_started.len(), 0, "Another battle already started");
     }
 
-    pub fn start_battle(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> BattleId {
+    #[near_sdk::serializer(borsh)]
+    pub fn resolve_get(
+        &mut self,
+        account_id: String,
+        referrer_id: Option<String>,
+    ) -> BattleId {
+        let log_message = format!("Cross-contract callback");
+        env::log(log_message.as_bytes());
+
+        // env::log(log_message.as_bytes());
+
+        // let tokens = PromiseOrValue::Value(env::promise_result(0));
+        match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
+            PromiseResult::Successful(result) => {
+
+                // let tokens = near_sdk::serde_json::from_slice::<String>(&result).unwrap();
+                let tokens = String::from_utf8(result);
+
+                let log_message = format!("User tokens: {:?}", tokens);
+                env::log(log_message.as_bytes());
+
+                let battle_id = self.next_battle_id;
+            
+                let battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
+
+                self.battles.insert(&battle_id, &battle);
+                self.next_battle_id += 1;
+            
+                self.add_referral(&account_id, &referrer_id);
+                self.update_stats(&account_id, UpdateStatsAction::AddBattle, None, None);
+
+                battle_id
+            },
+          }
+    }
+
+    pub fn start_battle(&mut self, opponent_id: Option<AccountId>, referrer_id: Option<AccountId>) -> Promise {
         if let Some(_opponent) = self.available_warriors.get(&opponent_id.unwrap_or("".to_string())) {
             panic!("PvP mode is not ready yet");
         } else {
@@ -189,15 +219,24 @@ impl DeFight {
 
             self.is_battle_started(&account_id);
 
-            let battle_id = self.next_battle_id;
+            // Initiating receiver's call and the callback
+            let battle_id = ext_paras_receiver::nft_tokens_for_owner(
+                env::signer_account_id(),
+                None,
+                None,
+                &"paras-token-v2.testnet".to_string(), //contract account to make the call to
+                0, //attached deposit
+                30_000_000_000_000,
+            )
 
-            let battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
-
-            self.battles.insert(&battle_id, &battle);
-            self.next_battle_id += 1;
-        
-            self.add_referral(&account_id, &referrer_id);
-            self.update_stats(&account_id, UpdateStatsAction::AddBattle, None, None);
+            //we then resolve the promise and call nft_resolve_transfer on our own contract
+            .then(ext_self::resolve_get(
+                account_id,
+                referrer_id,
+                &env::current_account_id(), //contract account to make the call to
+                0, //attached deposit
+                30_000_000_000_000, //GAS attached to the call
+            ));
 
             battle_id
         }
@@ -210,22 +249,6 @@ impl DeFight {
         assert!(battle.winner.is_none(), "Battle has already finished");
 
         // const account_id: String = env::predecessor_account_id();
-        // Initiating receiver's call and the callback
-        ext_paras_receiver::nft_tokens_for_owner(
-            env::signer_account_id(),
-            None,
-            None,
-            &"paras-token-v2.testnet".to_string(), //contract account to make the call to
-            0, //attached deposit
-            5_000_000_000_000,
-        )
-
-        //we then resolve the promise and call nft_resolve_transfer on our own contract
-        .then(ext_self::resolve_get(
-            &env::current_account_id(), //contract account to make the call to
-            0, //attached deposit
-            5_000_000_000_000, //GAS attached to the call
-        ));
 
         let log_message = format!("Battle state: {:?}", battle.winner.is_none());
         env::log(log_message.as_bytes());

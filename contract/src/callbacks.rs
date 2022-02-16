@@ -21,5 +21,7 @@ trait ParasResolver {
     */
     fn resolve_get(
         &mut self,
+        account_id: String,
+        referrer_id: Option<String>,
     ) -> bool;
 }
