@@ -124,7 +124,6 @@ fn part_validator(string_to_validate: &str) -> Result<MoveData, ParseError> {
 	let result: Vec<&str> = string_to_validate.split(":").collect();
 
     if ACTION_EXPR.captures(result[0]).is_none() {
-        
         return Err(ParseError::WrongAction { action : result[0].to_string() });
     }
 
