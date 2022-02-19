@@ -103,7 +103,15 @@ impl DeFight {
             0, //attached deposit
             30_000_000_000_000, //GAS attached to the call
         ));
-        
+    }
+
+    pub fn remove_token_series(&mut self, id: String) {
+        assert_eq!(self.owner_ids.contains(&env::predecessor_account_id()), true, "ERR_NO_ACCESS");
+        // let id = &id.to_owned();
+        let log_message = format!("Token series id: {:?}", id);
+        env::log(log_message.as_bytes());
+
+        self.tokens_series.remove(&id);
     }
 
     pub fn get_token_series(self, from_index: u64, limit: u64) -> Vec<(TokenId, TokenSeriesJson)> {
