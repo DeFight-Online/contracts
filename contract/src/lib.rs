@@ -3,11 +3,12 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
 use near_sdk::serde::{Deserialize, Serialize};
-// use near_sdk::json_types::U128;
-use near_contract_standards::non_fungible_token::{TokenId};
-// use near_contract_standards::non_fungible_token::metadata::{
-//   NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
-// };
+use near_sdk::json_types::U128;
+use near_contract_standards::non_fungible_token::{TokenId, Token};
+use near_contract_standards::non_fungible_token::metadata::{
+  NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
+};
+use std::collections::HashMap;
 
 pub use warrior::Warrior;
 pub use battle::{Battle, BattleToSave, EBattleConfig, InputError, parse_move, ParseError, BattleState};
@@ -63,7 +64,7 @@ pub enum UpdateStatsAction {
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct DeFight {
     owner_ids: UnorderedSet<AccountId>,
-    tokens_series: UnorderedSet<TokenId>,
+    tokens_series: UnorderedMap<TokenId, TokenSeriesJson>,
     battles: LookupMap<BattleId, BattleToSave>,
     available_warriors: UnorderedMap<AccountId, EBattleConfig>,
     warriors_equipment: LookupMap<AccountId, EquipmentConfig>,
@@ -79,7 +80,7 @@ impl DeFight {
     pub fn new() -> Self {
         let mut this = Self {
             owner_ids: UnorderedSet::new(StorageKey::OwnerIds),
-            tokens_series: UnorderedSet::new(StorageKey::TokensSeries),
+            tokens_series: UnorderedMap::new(StorageKey::TokensSeries),
             battles: LookupMap::new(StorageKey::Battles),
             available_warriors: UnorderedMap::new(StorageKey::AvailableWarriors),
             warriors_equipment: LookupMap::new(StorageKey::WarriorsEquipment),
@@ -177,12 +178,12 @@ impl DeFight {
     }
 
     #[near_sdk::serializer(borsh)]
-    pub fn resolve_get(
+    pub fn resolve_paras_tokens(
         &mut self,
         account_id: String,
         referrer_id: Option<String>,
     ) -> BattleId {
-        let log_message = format!("Cross-contract callback");
+        let log_message = format!("Get tokens cross-contract callback");
         env::log(log_message.as_bytes());
 
         // env::log(log_message.as_bytes());
@@ -192,12 +193,28 @@ impl DeFight {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
             PromiseResult::Successful(result) => {
+                let tokens = near_sdk::serde_json::from_slice::<Vec<Token>>(&result).unwrap();
+                // let tokens = near_sdk::serde_json::from_slice::<Token>(&result).unwrap();
+                
 
-                // let tokens = near_sdk::serde_json::from_slice::<String>(&result).unwrap();
-                let tokens = String::from_utf8(result);
+                let tokens_2 = String::from_utf8(result);
+
+                let log_message = format!("User tokens: {:?}", tokens_2);
+                env::log(log_message.as_bytes());
+
+                // let (head, body, _tail) = unsafe { result.align_to::<Token>() };
+                // assert!(head.is_empty(), "Data was not aligned");
+                // let my_struct = &body[0];
 
                 let log_message = format!("User tokens: {:?}", tokens);
                 env::log(log_message.as_bytes());
+
+                let equipped_tokens_ids = self.warriors_equipment.get(&account_id);
+
+                let log_message = format!("Equipped user tokens: {:?}", equipped_tokens_ids);
+                env::log(log_message.as_bytes());
+
+                // let equipped_tokens = result.iter().filter(|token| equipped_tokens_ids.contains(token.token_series_id));
 
                 let battle_id = self.next_battle_id;
             
@@ -233,7 +250,7 @@ impl DeFight {
             )
 
             //we then resolve the promise and call nft_resolve_transfer on our own contract
-            .then(ext_self::resolve_get(
+            .then(ext_self::resolve_paras_tokens(
                 account_id,
                 referrer_id,
                 &env::current_account_id(), //contract account to make the call to

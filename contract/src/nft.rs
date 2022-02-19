@@ -3,6 +3,17 @@ use strum::{EnumVariantNames, VariantNames};
 use std::str::FromStr;
 use near_sdk::serde::{Deserialize, Serialize};
 
+pub type TokenSeriesId = String;
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub struct TokenSeriesJson {
+    token_series_id: TokenSeriesId,
+	metadata: TokenMetadata,
+	creator_id: AccountId,
+    royalty: HashMap<AccountId, u32>
+}
+
 #[derive(PartialEq, EnumVariantNames, Debug, Copy, Clone)]
 #[strum(serialize_all = "snake_case")]
 pub enum Place {
@@ -68,18 +79,55 @@ pub struct EquipmentConfig {
 
 #[near_bindgen]
 impl DeFight {
-    pub fn add_token_series(&mut self, ids: String) {
-        assert_eq!(self.owner_ids.contains(&env::predecessor_account_id()), true, "ERR_NO_ACCESS");
+    pub fn resolve_paras_token_series(&mut self) {
+        let log_message = format!("Get token series cross-contract callback");
+        env::log(log_message.as_bytes());
 
-        for id in ids.split(",") {
-            let id = &id.to_owned();
+        match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
+            PromiseResult::Successful(result) => {
+                let token_series = near_sdk::serde_json::from_slice::<TokenSeriesJson>(&result).unwrap();
 
-            self.tokens_series.insert(&id);
+                let log_message = format!("User tokens: {:?}", token_series);
+                env::log(log_message.as_bytes());
+
+                self.tokens_series.insert(&token_series.token_series_id, &token_series);
+            },
         }
     }
 
-    pub fn get_token_series(self) -> Vec<TokenId> {
-        self.tokens_series.to_vec()
+    pub fn add_token_series(&mut self, id: String) {
+        assert_eq!(self.owner_ids.contains(&env::predecessor_account_id()), true, "ERR_NO_ACCESS");
+        // let id = &id.to_owned();
+        let log_message = format!("Token series id: {:?}", id);
+        env::log(log_message.as_bytes());
+
+        ext_paras_receiver::nft_get_series_single(
+            id,
+            &"paras-token-v2.testnet".to_string(), //contract account to make the call to
+            0, //attached deposit
+            30_000_000_000_000,
+        )
+
+        //we then resolve the promise and call nft_resolve_transfer on our own contract
+        .then(ext_self::resolve_paras_token_series(
+            &env::current_account_id(), //contract account to make the call to
+            0, //attached deposit
+            30_000_000_000_000, //GAS attached to the call
+        ));
+        
+    }
+
+    pub fn get_token_series(self, from_index: u64, limit: u64) -> Vec<(TokenId, TokenSeriesJson)> {
+        let keys = self.tokens_series.keys_as_vector();
+        let values = self.tokens_series.values_as_vector();
+        (from_index..std::cmp::min(from_index + limit, keys.len()))
+            .map(|index| {
+                let token_series_json: TokenSeriesJson = values.get(index).unwrap().into();
+                (keys.get(index).unwrap(), token_series_json.into())
+            })
+            .collect()
     }
 
     pub fn get_warrior_equipment(self, account_id: AccountId) -> EquipmentConfig {
