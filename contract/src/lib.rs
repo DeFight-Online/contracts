@@ -187,8 +187,7 @@ impl DeFight {
             "leggings" => equipment.leggings == Some(token_id.to_string()),
             "boots" => equipment.boots == Some(token_id.to_string()),
             "amulet" => equipment.amulet == Some(token_id.to_string()),
-            "weapon_1" => equipment.weapon_1 == Some(token_id.to_string()),
-            "weapon_2" => equipment.weapon_2 == Some(token_id.to_string()),
+            "weapon" => equipment.weapon_1 == Some(token_id.to_string()) || equipment.weapon_2 == Some(token_id.to_string()),
             _ => false
         }
     }
@@ -251,9 +250,25 @@ impl DeFight {
                                     env::log(log_message.as_bytes());
 
                                     for param in params {
-                                        if param.contains("damage") {
-                                            let damage = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
-                                            battle.warrior_1.strength += damage;
+                                        if param.contains("strength") {
+                                            let strength = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
+                                            battle.warrior_1.strength += strength;
+                                            battle.warrior_2.strength += strength;
+                                        }
+                                        if param.contains("stamina") {
+                                            let stamina = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
+                                            battle.warrior_1.stamina += stamina;
+                                            battle.warrior_2.stamina += stamina;
+                                        }
+                                        if param.contains("agility") {
+                                            let agility = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
+                                            battle.warrior_1.agility += agility;
+                                            battle.warrior_2.agility += agility;
+                                        }
+                                        if param.contains("intuition") {
+                                            let intuition = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
+                                            battle.warrior_1.intuition += intuition;
+                                            battle.warrior_2.intuition += intuition;
                                         }
                                     }
                                 }

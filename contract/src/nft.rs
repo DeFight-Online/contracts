@@ -66,22 +66,6 @@ pub struct EquipmentConfig {
 
 #[near_bindgen]
 impl DeFight {
-    // pub fn is_token_equipped(self, equipment: &EquipmentConfig, place: &str, token_id: TokenId) -> bool {
-    //     match place {
-    //         "helmet" => equipment.helmet == Some(token_id),
-    //         "armor" => equipment.armor == Some(token_id),
-    //         "gloves" => equipment.gloves == Some(token_id),
-    //         "bracers" => equipment.bracers == Some(token_id),
-    //         "shoulder_pads" => equipment.shoulder_pads == Some(token_id),
-    //         "leggings" => equipment.leggings == Some(token_id),
-    //         "boots" => equipment.boots == Some(token_id),
-    //         "amulet" => equipment.amulet == Some(token_id),
-    //         "weapon_1" => equipment.weapon_1 == Some(token_id),
-    //         "weapon_2" => equipment.weapon_2 == Some(token_id),
-    //         _ => false
-    //     }
-    // }
-
     pub fn resolve_paras_token_series(&mut self) {
         let log_message = format!("Get token series cross-contract callback");
         env::log(log_message.as_bytes());
