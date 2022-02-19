@@ -414,7 +414,7 @@ impl Battle {
 
             if !is_warrior_1_dead && is_warrior_2_dead {
                 // return Err(BattleState::BattleOver { winner: self.warrior_1.id });
-                winner = self.warrior_2.id;
+                winner = self.warrior_1.id;
                 self.warrior_2.health = 0;
             }
 
