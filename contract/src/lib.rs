@@ -177,6 +177,22 @@ impl DeFight {
         assert_eq!(battles_already_started.len(), 0, "Another battle already started");
     }
 
+    pub(crate) fn is_token_equipped(&self, equipment: &EquipmentConfig, place: &str, token_id: &TokenId) -> bool {
+        match place {
+            "helmet" => equipment.helmet == Some(token_id.to_string()),
+            "armor" => equipment.armor == Some(token_id.to_string()),
+            "gloves" => equipment.gloves == Some(token_id.to_string()),
+            "bracers" => equipment.bracers == Some(token_id.to_string()),
+            "shoulder_pads" => equipment.shoulder_pads == Some(token_id.to_string()),
+            "leggings" => equipment.leggings == Some(token_id.to_string()),
+            "boots" => equipment.boots == Some(token_id.to_string()),
+            "amulet" => equipment.amulet == Some(token_id.to_string()),
+            "weapon_1" => equipment.weapon_1 == Some(token_id.to_string()),
+            "weapon_2" => equipment.weapon_2 == Some(token_id.to_string()),
+            _ => false
+        }
+    }
+
     #[near_sdk::serializer(borsh)]
     pub fn resolve_paras_tokens(
         &mut self,
@@ -193,32 +209,59 @@ impl DeFight {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
             PromiseResult::Successful(result) => {
+                let battle_id = self.next_battle_id;
+            
+                let mut battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
+
                 let tokens = near_sdk::serde_json::from_slice::<Vec<Token>>(&result).unwrap();
-                // let tokens = near_sdk::serde_json::from_slice::<Token>(&result).unwrap();
-                
-
-                let tokens_2 = String::from_utf8(result);
-
-                let log_message = format!("User tokens: {:?}", tokens_2);
-                env::log(log_message.as_bytes());
-
-                // let (head, body, _tail) = unsafe { result.align_to::<Token>() };
-                // assert!(head.is_empty(), "Data was not aligned");
-                // let my_struct = &body[0];
 
                 let log_message = format!("User tokens: {:?}", tokens);
                 env::log(log_message.as_bytes());
+                
+                let warrior_tokens: Vec<_> = tokens.iter().filter(|x| self.tokens_series.get(&x.token_id.split(":").collect::<Vec<&str>>()[0].to_string()).is_some()).collect();
 
-                let equipped_tokens_ids = self.warriors_equipment.get(&account_id);
-
-                let log_message = format!("Equipped user tokens: {:?}", equipped_tokens_ids);
+                let log_message = format!("token_series_id: {:?}", warrior_tokens);
                 env::log(log_message.as_bytes());
+                
+                if let Some(equipment) = self.warriors_equipment.get(&account_id) {
+                    let log_message = format!("equipment: {:?}", equipment);
+                    env::log(log_message.as_bytes());
 
-                // let equipped_tokens = result.iter().filter(|token| equipped_tokens_ids.contains(token.token_series_id));
+                    for token in warrior_tokens {
+                        let token_series_id = token.token_id.split(":").collect::<Vec<&str>>()[0].to_string();
+                        if let Some(token_series_json) = self.tokens_series.get(&token_series_id) {
 
-                let battle_id = self.next_battle_id;
-            
-                let battle = BattleToSave::new(account_id.clone(), account_id.clone(), None);
+                            let metadata = &token_series_json.metadata;
+                            let log_message = format!("metadata: {:?}", metadata);
+                            env::log(log_message.as_bytes());
+
+                            if let Some(extra) = &metadata.extra {
+                                let log_message = format!("extra: {:?}", extra);
+                                env::log(log_message.as_bytes());
+
+                                let params = extra.split(",").collect::<Vec<&str>>();
+                                let place = params[0].to_string()
+                                    .split(":").collect::<Vec<&str>>()[1].to_string();
+
+                                let log_message = format!("Place: {:?}", place);
+                                env::log(log_message.as_bytes());
+
+                                if self.is_token_equipped(&equipment, &place, &token.token_id) {
+                                    let log_message = format!("equipped_tokens: {:?}", token);
+                                    env::log(log_message.as_bytes());
+
+                                    for param in params {
+                                        if param.contains("damage") {
+                                            let damage = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
+                                            battle.warrior_1.strength += damage;
+                                        }
+                                    }
+                                }
+                            }                        
+                            
+                        }       
+                    }
+                }
 
                 self.battles.insert(&battle_id, &battle);
                 self.next_battle_id += 1;
