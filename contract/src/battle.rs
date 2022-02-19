@@ -15,6 +15,10 @@ pub struct Battle {
     pub last_action_timestamp: Timestamp,
     pub warrior_1_missed_action: bool,
     pub warrior_2_missed_action: bool,
+    pub warrior_1_last_attack: Option<String>,
+    pub warrior_1_last_protect: Option<String>,
+    pub warrior_2_last_attack: Option<String>,
+    pub warrior_2_last_protect: Option<String>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -56,6 +60,17 @@ impl FromStr for Part {
             "Groin" => Ok(Part::Groin),
             "Legs" => Ok(Part::Legs),
             _ => Err(()),
+        }
+    }
+}
+impl Part {
+    fn as_str(&self) -> String {
+        match self {
+            Part::Head => "Head".to_string(),
+            Part::Neck => "Neck".to_string(),
+            Part::Chest => "Chest".to_string(),
+            Part::Groin => "Groin".to_string(),
+            Part::Legs => "Legs".to_string(),
         }
     }
 }
@@ -170,6 +185,14 @@ pub fn parse_move(params : &str) -> Result<Vec<MoveData>, InputError> {
 	Ok(actions)
 }
 
+#[derive(Debug)]
+pub struct Action {
+    warrior_1_attack: String,
+    warrior_1_protect: String,
+    warrior_2_attack: String,
+    warrior_2_protect: String,
+}
+
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BattleToSave {
@@ -180,6 +203,10 @@ pub struct BattleToSave {
     pub(crate) last_action_timestamp: Timestamp,
     pub(crate) warrior_1_missed_action: bool,
     pub(crate) warrior_2_missed_action: bool,
+    pub(crate) warrior_1_last_attack: Option<String>,
+    pub(crate) warrior_1_last_protect: Option<String>,
+    pub(crate) warrior_2_last_attack: Option<String>,
+    pub(crate) warrior_2_last_protect: Option<String>,
 }
 
 impl From<Battle> for BattleToSave {
@@ -192,6 +219,10 @@ impl From<Battle> for BattleToSave {
             last_action_timestamp: battle.last_action_timestamp,
             warrior_1_missed_action: battle.warrior_1_missed_action,
             warrior_2_missed_action: battle.warrior_2_missed_action,
+            warrior_1_last_attack: battle.warrior_1_last_attack,
+            warrior_1_last_protect: battle.warrior_1_last_protect,
+            warrior_2_last_attack: battle.warrior_2_last_attack,
+            warrior_2_last_protect: battle.warrior_2_last_protect,
         }
     }
 }
@@ -207,6 +238,10 @@ impl From<BattleToSave> for Battle {
             last_action_timestamp: battle_to_save.last_action_timestamp,
             warrior_1_missed_action: battle_to_save.warrior_1_missed_action,
             warrior_2_missed_action: battle_to_save.warrior_2_missed_action,
+            warrior_1_last_attack: battle_to_save.warrior_1_last_attack,
+            warrior_1_last_protect: battle_to_save.warrior_1_last_protect,
+            warrior_2_last_attack: battle_to_save.warrior_2_last_attack,
+            warrior_2_last_protect: battle_to_save.warrior_2_last_protect,
         };
 
         battle
@@ -225,6 +260,10 @@ impl BattleToSave {
             last_action_timestamp: env::block_timestamp(),
             warrior_1_missed_action: false,
             warrior_2_missed_action: false,
+            warrior_1_last_attack: None,
+            warrior_1_last_protect: None,
+            warrior_2_last_attack: None,
+            warrior_2_last_protect: None,
         }
     }
 
@@ -264,8 +303,8 @@ impl Battle {
     pub fn apply_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
         let parts_map = Part::VARIANTS;
     
-        let warrior_1_attack = actions[0].part;
-        let warrior_1_protect = actions[1].part;
+        let mut warrior_1_attack = actions[0].part;
+        let mut warrior_1_protect = actions[1].part;
         
         let attack_seed = *random_seed().get(0).unwrap();
         let protect_seed = *random_seed().get(1).unwrap();
@@ -349,6 +388,10 @@ impl Battle {
                 last_action_timestamp: env::block_timestamp(),
                 warrior_1_missed_action: self.warrior_1_missed_action,
                 warrior_2_missed_action: self.warrior_2_missed_action,
+                warrior_1_last_attack: Some(warrior_1_attack.as_str()),
+                warrior_1_last_protect: Some(warrior_1_protect.as_str()),
+                warrior_2_last_attack: Some(parts_map[attack_index as usize].to_string()),
+                warrior_2_last_protect: Some(parts_map[protect_index as usize].to_string()),
             }
         } else {
             let mut is_warrior_1_dead = false;
@@ -383,6 +426,10 @@ impl Battle {
                 last_action_timestamp: env::block_timestamp(),
                 warrior_1_missed_action: self.warrior_1_missed_action,
                 warrior_2_missed_action: self.warrior_2_missed_action,
+                warrior_1_last_attack: Some(warrior_1_attack.as_str()),
+                warrior_1_last_protect: Some(warrior_1_protect.as_str()),
+                warrior_2_last_attack: Some(parts_map[attack_index as usize].to_string()),
+                warrior_2_last_protect: Some(parts_map[protect_index as usize].to_string()),
             }
         }
     }
@@ -424,6 +471,10 @@ impl Battle {
             last_action_timestamp: env::block_timestamp(),
             warrior_1_missed_action: false,
             warrior_2_missed_action: false,
+            warrior_1_last_attack: None,
+            warrior_1_last_protect: None,
+            warrior_2_last_attack: None,
+            warrior_2_last_protect: None,
         }
     }
 }
