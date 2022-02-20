@@ -348,7 +348,7 @@ impl Battle {
             damage_to_2 = 0;
         } else {
             if warrior_1_attack != warrior_2_protect || self.warrior_2_missed_action {
-                damage_to_2 = 2 * self.warrior_1.strength.clone();
+                damage_to_2 = 3 * self.warrior_1.strength.clone() / 2;
             } else {
                 damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
             }
@@ -359,7 +359,7 @@ impl Battle {
             damage_to_1 = 0;
         } else {
             if warrior_2_attack != warrior_1_protect || self.warrior_1_missed_action {
-                damage_to_1 = 2 * self.warrior_2.strength.clone();
+                damage_to_1 = 3 * self.warrior_2.strength.clone() / 2;
             } else {
                 damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
             }
