@@ -268,7 +268,6 @@ impl BattleToSave {
     }
 
     fn create_two_warriors(account_id_1: AccountId, account_id_2: AccountId) -> (Warrior, Warrior) {
-        // TO DO: Add checking NFT and modify warrior characteristics
         (
             Warrior {
                 id: 1,
@@ -303,8 +302,8 @@ impl Battle {
     pub fn apply_actions(&mut self, actions: Vec<MoveData>) -> BattleToSave {
         let parts_map = Part::VARIANTS;
     
-        let mut warrior_1_attack = actions[0].part;
-        let mut warrior_1_protect = actions[1].part;
+        let warrior_1_attack = actions[0].part;
+        let warrior_1_protect = actions[1].part;
         
         let attack_seed = *random_seed().get(0).unwrap();
         let protect_seed = *random_seed().get(1).unwrap();
@@ -350,7 +349,8 @@ impl Battle {
             if warrior_1_attack != warrior_2_protect || self.warrior_2_missed_action {
                 damage_to_2 = 3 * self.warrior_1.strength.clone() / 2;
             } else {
-                damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
+                // damage_to_2 = 2 * self.warrior_1.strength.clone() - self.warrior_2.defense.clone();
+                damage_to_2 = 3 * self.warrior_1.strength.clone() / 2 / 4;
             }
         }
     
@@ -361,10 +361,17 @@ impl Battle {
             if warrior_2_attack != warrior_1_protect || self.warrior_1_missed_action {
                 damage_to_1 = 3 * self.warrior_2.strength.clone() / 2;
             } else {
-                damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
+                // damage_to_1 = 2 * self.warrior_2.strength.clone() - self.warrior_1.defense.clone();
+                damage_to_1 = 3 * self.warrior_2.strength.clone() / 2 / 4;
             }
         }
     
+        let log_message = format!("damage_to_1: {}", damage_to_1);
+        env::log(log_message.as_bytes());
+
+        let log_message = format!("damage_to_2: {}", damage_to_2);
+        env::log(log_message.as_bytes());
+
         if self.warrior_1.health.clone() > damage_to_1 && self.warrior_2.health.clone() > damage_to_2 {
             let warrior_1_health = self.warrior_1.health.clone() - damage_to_1;
             let warrior_2_health = self.warrior_2.health.clone() - damage_to_2;
@@ -407,13 +414,11 @@ impl Battle {
             }
 
             if is_warrior_1_dead && !is_warrior_2_dead {
-                // return Err(BattleState::BattleOver { winner: self.warrior_2.id });
                 winner = self.warrior_2.id;
                 self.warrior_1.health = 0;
             }
 
             if !is_warrior_1_dead && is_warrior_2_dead {
-                // return Err(BattleState::BattleOver { winner: self.warrior_1.id });
                 winner = self.warrior_1.id;
                 self.warrior_2.health = 0;
             }
@@ -435,7 +440,6 @@ impl Battle {
     }
 
     fn create_two_warriors(account_id_1: AccountId, account_id_2: AccountId) -> (Warrior, Warrior) {
-        // TO DO: Add checking NFT and modify warrior characteristics
         (
             Warrior {
                 id: 1,
@@ -489,6 +493,5 @@ mod test {
     
         assert_eq!(vec![MoveData::new(ActionType::Attack, Part::Head), MoveData::new(ActionType::Protect, Part::Legs)], result);
     }
-    
     // TO DO: add tests for panics
 }

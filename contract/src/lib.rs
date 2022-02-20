@@ -201,9 +201,6 @@ impl DeFight {
         let log_message = format!("Get tokens cross-contract callback");
         env::log(log_message.as_bytes());
 
-        // env::log(log_message.as_bytes());
-
-        // let tokens = PromiseOrValue::Value(env::promise_result(0));
         match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Failed => env::panic(b"Unable to get user tokens"),
@@ -254,6 +251,8 @@ impl DeFight {
                                             let strength = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
                                             battle.warrior_1.strength += strength;
                                             battle.warrior_2.strength += strength;
+                                            battle.warrior_1.defense += strength / 2;
+                                            battle.warrior_2.defense += strength / 2;
                                         }
                                         if param.contains("stamina") {
                                             let stamina = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
@@ -273,8 +272,8 @@ impl DeFight {
                                             let intuition = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
                                             battle.warrior_1.intuition += intuition;
                                             battle.warrior_2.intuition += intuition;
-                                            battle.warrior_1.defense += intuition/4;
-                                            battle.warrior_2.defense += intuition/4;
+                                            battle.warrior_1.defense += intuition/2;
+                                            battle.warrior_2.defense += intuition/2;
                                         }
                                     }
                                 }
