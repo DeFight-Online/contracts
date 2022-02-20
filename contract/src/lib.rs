@@ -262,7 +262,6 @@ impl DeFight {
                                             battle.warrior_1.health += stamina*10;
                                             battle.warrior_2.health += stamina*10;
                                         }
-                                        // TO DO Need to add
                                         if param.contains("agility") {
                                             let agility = param.split(":").collect::<Vec<&str>>()[1].parse::<u16>().unwrap();
                                             battle.warrior_1.agility += agility;
@@ -311,7 +310,7 @@ impl DeFight {
                 None,
                 &"paras-token-v2.testnet".to_string(), //contract account to make the call to
                 0, //attached deposit
-                40_000_000_000_000,
+                70_000_000_000_000,
             )
 
             //we then resolve the promise and call nft_resolve_transfer on our own contract
