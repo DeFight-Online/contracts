@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 near-sdk = "3.1.0"
 near-contract-standards = "3.2.0"
 lazy_static = "1.4"
-regex = "1.5"
+regex = "1.6"
 strum = { version = "0.21", features = ["derive"] }
 enum-map = "2.0.0"
 
